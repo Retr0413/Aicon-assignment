@@ -42,10 +42,7 @@ func (s *Server) Run(ctx context.Context) error {
 	itemHandler := itemController.NewItemHandler(itemUsecase)
 
 	// ヘルスチェック
-	e.GET("/health", func(c echo.Context) error {
-		systemHandler.Health(c)
-		return nil
-	})
+	e.GET("/health", systemHandler.Health)
 
 	// アイテムに関するエンドポイント
 	itemsGroup := e.Group("/items")
