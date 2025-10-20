@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -91,6 +94,76 @@ func (h *ItemHandler) CreateItem(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, item)
+}
+
+func (h *ItemHandler) UpdateItem(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "invalid item ID",
+		})
+	}
+
+	// リクエストボディを読み取る
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "invalid request format",
+		})
+	}
+
+	// JSONをパースして不変フィールドをチェック
+	var rawInput map[string]interface{}
+	if err := json.Unmarshal(body, &rawInput); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "invalid request format",
+		})
+	}
+
+	// 不変フィールドのチェック
+	immutableFields := []string{"id", "created_at", "category", "purchase_date"}
+	for _, field := range immutableFields {
+		if _, exists := rawInput[field]; exists {
+			return c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "validation failed",
+				Details: []string{fmt.Sprintf("%s cannot be updated", field)},
+			})
+		}
+	}
+
+	// UpdateItemInputに変換
+	var input usecase.UpdateItemInput
+	if name, ok := rawInput["name"].(string); ok {
+		input.Name = &name
+	}
+	if brand, ok := rawInput["brand"].(string); ok {
+		input.Brand = &brand
+	}
+	if purchasePrice, ok := rawInput["purchase_price"].(float64); ok {
+		price := int(purchasePrice)
+		input.PurchasePrice = &price
+	}
+
+	item, err := h.itemUsecase.UpdateItem(c.Request().Context(), id, input)
+	if err != nil {
+		if domainErrors.IsNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, ErrorResponse{
+				Error: "item not found",
+			})
+		}
+		if domainErrors.IsValidationError(err) {
+			return c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "validation failed",
+				Details: []string{err.Error()},
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "failed to update item",
+		})
+	}
+
+	return c.JSON(http.StatusOK, item)
 }
 
 func (h *ItemHandler) DeleteItem(c echo.Context) error {

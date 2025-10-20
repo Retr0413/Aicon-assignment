@@ -108,6 +108,36 @@ func (r *ItemRepository) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *ItemRepository) Update(ctx context.Context, item *entity.Item) (*entity.Item, error) {
+	query := `
+        UPDATE items
+        SET name = ?, brand = ?, purchase_price = ?, updated_at = ?
+        WHERE id = ?
+    `
+
+	result, err := r.Execute(ctx, query,
+		item.Name,
+		item.Brand,
+		item.PurchasePrice,
+		item.UpdatedAt,
+		item.ID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", domainErrors.ErrDatabaseError, err.Error())
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to get rows affected: %s", domainErrors.ErrDatabaseError, err.Error())
+	}
+
+	if rowsAffected == 0 {
+		return nil, domainErrors.ErrItemNotFound
+	}
+
+	return r.FindByID(ctx, item.ID)
+}
+
 func (r *ItemRepository) GetSummaryByCategory(ctx context.Context) (map[string]int, error) {
 	query := `
         SELECT category, COUNT(*) as count
@@ -142,7 +172,7 @@ func scanItem(scanner interface {
 	Scan(dest ...interface{}) error
 }) (*entity.Item, error) {
 	var item entity.Item
-	var purchaseDate string
+	var purchaseDate time.Time
 	var createdAt, updatedAt time.Time
 
 	err := scanner.Scan(
@@ -159,14 +189,8 @@ func scanItem(scanner interface {
 		return nil, err
 	}
 
-	if purchaseDate != "" {
-		if parsedDate, err := time.Parse("2006-01-02", purchaseDate); err == nil {
-			item.PurchaseDate = parsedDate.Format("2006-01-02")
-		} else {
-			item.PurchaseDate = purchaseDate
-		}
-	}
-
+	// DATE型をYYYY-MM-DD形式の文字列に変換
+	item.PurchaseDate = purchaseDate.Format("2006-01-02")
 	item.CreatedAt = createdAt
 	item.UpdatedAt = updatedAt
 
