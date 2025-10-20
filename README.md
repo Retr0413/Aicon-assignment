@@ -17,6 +17,7 @@ http://localhost:8080
 | GET | `/items` | 全アイテム取得 | 200 |
 | POST | `/items` | アイテム登録 | 201, 400 |
 | GET | `/items/{id}` | 特定アイテム取得 | 200, 404 |
+| PATCH | `/items/{id}` | アイテム部分更新 | 200, 400, 404 |
 | DELETE | `/items/{id}` | アイテム削除 | 204, 404 |
 | GET | `/items/summary` | カテゴリー別集計 | 200 |
 
@@ -45,6 +46,7 @@ http://localhost:8080
 
 ### バリデーションルール
 
+#### 新規登録時（POST）
 | フィールド | 必須 | 制限 |
 |-----------|------|------|
 | name | ✓ | 100文字以内 |
@@ -52,6 +54,20 @@ http://localhost:8080
 | brand | ✓ | 100文字以内 |
 | purchase_price | ✓ | 0以上の整数 |
 | purchase_date | ✓ | YYYY-MM-DD形式 |
+
+#### 更新時（PATCH）
+| フィールド | 更新可否 | 制限 |
+|-----------|---------|------|
+| name | ✓ | 100文字以内 |
+| brand | ✓ | 100文字以内 |
+| purchase_price | ✓ | 0以上の整数 |
+| id | ✗ | 不変 |
+| category | ✗ | 不変 |
+| purchase_date | ✗ | 不変 |
+| created_at | ✗ | 不変 |
+| updated_at | - | 自動更新 |
+
+**注意**: PATCH では `name`、`brand`、`purchase_price` のみ更新可能です。他のフィールドを含むリクエストはエラーになります。
 
 ### API使用例
 
@@ -94,12 +110,45 @@ curl -X POST http://localhost:8080/items \
 curl -X GET http://localhost:8080/items/1
 ```
 
-#### 4. アイテム削除
+#### 4. アイテム部分更新
+```bash
+# ブランドのみ更新
+curl -X PATCH http://localhost:8080/items/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brand": "セイコー"
+  }'
+
+# 複数フィールドを更新
+curl -X PATCH http://localhost:8080/items/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "セイコー プレザージュ",
+    "brand": "SEIKO",
+    "purchase_price": 80000
+  }'
+```
+
+**レスポンス:**
+```json
+{
+  "id": 1,
+  "name": "セイコー プレザージュ",
+  "category": "時計",
+  "brand": "SEIKO",
+  "purchase_price": 80000,
+  "purchase_date": "2023-01-15",
+  "created_at": "2023-01-15T10:00:00Z",
+  "updated_at": "2025-10-20T01:34:27Z"
+}
+```
+
+#### 5. アイテム削除
 ```bash
 curl -X DELETE http://localhost:8080/items/1
 ```
 
-#### 5. カテゴリー別集計
+#### 6. カテゴリー別集計
 ```bash
 curl -X GET http://localhost:8080/items/summary
 ```
