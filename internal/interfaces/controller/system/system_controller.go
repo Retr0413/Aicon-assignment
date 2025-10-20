@@ -8,8 +8,8 @@ import (
 
 type SystemHandler struct{}
 
-func (handler *SystemHandler) Health(ctx echo.Context) {
-	ctx.NoContent(http.StatusOK)
+func (handler *SystemHandler) Health(ctx echo.Context) error {
+	return ctx.NoContent(http.StatusOK)
 }
 
 func NewSystemHandler() *SystemHandler {
